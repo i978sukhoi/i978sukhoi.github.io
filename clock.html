@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Clock">
+<title>Digital Clock</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-color: #000000;
+    --text-color: #ffff00;
+    --font-weight: 900;
+  }
+
+  body {
+    background: var(--bg-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    font-family: -apple-system, 'SF Pro Display', system-ui, 'Segoe UI', 'Consolas', sans-serif;
+    font-variant-numeric: tabular-nums;
+    transition: background 0.3s;
+  }
+
+  /* Clock */
+  #clock {
+    color: var(--text-color);
+    font-weight: var(--font-weight);
+    white-space: nowrap;
+    text-align: center;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    width: max-content;
+    transition: color 0.3s, font-weight 0.1s;
+    user-select: none;
+  }
+
+  /* Sub displays (date & seconds) */
+  .sub-display {
+    position: fixed;
+    color: var(--text-color);
+    font-weight: 700;
+    white-space: nowrap;
+    line-height: 1;
+    transition: color 0.3s;
+    user-select: none;
+  }
+  #date { top: 12px; left: 16px; }
+  #seconds { bottom: 12px; right: 16px; }
+
+  /* Settings toggle button */
+  #settings-toggle {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.5);
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s;
+  }
+  #settings-toggle:hover {
+    background: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.8);
+  }
+
+  /* Settings panel */
+  #settings {
+    position: fixed;
+    top: 60px;
+    right: 16px;
+    background: rgba(30,30,30,0.95);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    padding: 20px;
+    z-index: 100;
+    display: none;
+    min-width: 220px;
+    backdrop-filter: blur(10px);
+  }
+  #settings.open { display: block; }
+
+  #settings h3 {
+    color: rgba(255,255,255,0.7);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
+    font-family: system-ui, sans-serif;
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    font-family: system-ui, sans-serif;
+  }
+  .setting-row:last-child { margin-bottom: 0; }
+
+  .setting-row label {
+    color: rgba(255,255,255,0.6);
+    font-size: 13px;
+  }
+
+  .setting-row input[type="color"] {
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+    padding: 2px;
+  }
+
+  .setting-row input[type="range"] {
+    width: 100px;
+    accent-color: #888;
+  }
+
+  /* Shared button style */
+  .setting-btn {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: system-ui, sans-serif;
+    transition: background 0.2s;
+  }
+  .setting-btn:hover { background: rgba(255,255,255,0.2); }
+  #reset-btn:hover { background: rgba(255,100,100,0.3); }
+
+  #font-select {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: system-ui, sans-serif;
+    max-width: 130px;
+  }
+  #font-select option {
+    background: #1e1e1e;
+    color: #ccc;
+  }
+</style>
+</head>
+<body>
+
+<div id="date" class="sub-display"></div>
+<div id="clock">12:00</div>
+<div id="seconds" class="sub-display"></div>
+
+<button id="settings-toggle" type="button" title="Settings" aria-controls="settings" aria-expanded="false">&#9881;</button>
+
+<div id="settings">
+  <h3>Settings</h3>
+  <div class="setting-row">
+    <label>Screen</label>
+    <button id="fullscreen-btn" type="button" class="setting-btn">Full</button>
+  </div>
+  <div class="setting-row">
+    <label>Font</label>
+    <select id="font-select">
+      <option value="system-ui" selected>System</option>
+      <option value="Arial Black">Arial Black</option>
+      <option value="Impact">Impact</option>
+      <option value="Georgia">Georgia</option>
+      <option value="Verdana">Verdana</option>
+      <option value="Arial">Arial</option>
+      <option value="Times New Roman">Times New Roman</option>
+      <option value="Trebuchet MS">Trebuchet MS</option>
+      <option value="Palatino">Palatino</option>
+      <option value="Courier New">Courier New</option>
+    </select>
+  </div>
+  <div class="setting-row">
+    <label>Format</label>
+    <button id="format-btn" type="button" class="setting-btn">12H</button>
+  </div>
+  <div class="setting-row">
+    <label>Weight</label>
+    <input type="range" id="weight-slider" min="100" max="900" step="100" value="900">
+  </div>
+  <div class="setting-row">
+    <label>Sub Size</label>
+    <input type="range" id="sub-ratio-slider" min="15" max="35" step="1" value="25">
+  </div>
+  <div class="setting-row">
+    <label>Text</label>
+    <input type="color" id="text-color" value="#ffff00">
+  </div>
+  <div class="setting-row">
+    <label>Background</label>
+    <input type="color" id="bg-color" value="#000000">
+  </div>
+  <div class="setting-row" style="margin-top:6px">
+    <label></label>
+    <button id="reset-btn" type="button" class="setting-btn">Reset</button>
+  </div>
+</div>
+
+<script>
+  const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+  const STORAGE_KEY = 'clock-settings';
+  const DEFAULT_FONT_STACK = "-apple-system, 'SF Pro Display', system-ui, 'Segoe UI', 'Consolas', sans-serif";
+  const SUB_RATIO_MIN = 15;
+  const SUB_RATIO_MAX = 35;
+  const DEFAULT_SETTINGS = Object.freeze({
+    use24h: false,
+    font: 'system-ui',
+    weight: '900',
+    textColor: '#ffff00',
+    bgColor: '#000000',
+    subRatio: 25
+  });
+
+  function clampSubRatio(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return DEFAULT_SETTINGS.subRatio;
+    return Math.min(SUB_RATIO_MAX, Math.max(SUB_RATIO_MIN, Math.round(num)));
+  }
+
+  const elements = {
+    clock: document.getElementById('clock'),
+    date: document.getElementById('date'),
+    seconds: document.getElementById('seconds'),
+    settings: document.getElementById('settings'),
+    toggleBtn: document.getElementById('settings-toggle'),
+    fullscreenBtn: document.getElementById('fullscreen-btn'),
+    formatBtn: document.getElementById('format-btn'),
+    fontSelect: document.getElementById('font-select'),
+    weightSlider: document.getElementById('weight-slider'),
+    subRatioSlider: document.getElementById('sub-ratio-slider'),
+    textColorInput: document.getElementById('text-color'),
+    bgColorInput: document.getElementById('bg-color'),
+    resetBtn: document.getElementById('reset-btn')
+  };
+  elements.fullscreenRow = elements.fullscreenBtn.closest('.setting-row');
+
+  const measureCtx = document.createElement('canvas').getContext('2d');
+  const state = {
+    now: new Date(),
+    settings: loadSettings(),
+    settingsOpen: false,
+    tickTimerId: null
+  };
+
+  function pad(value) {
+    return value < 10 ? '0' + value : '' + value;
+  }
+
+  function mergeSettings(partial) {
+    const source = partial && typeof partial === 'object' ? partial : {};
+    return {
+      use24h: 'use24h' in source ? Boolean(source.use24h) : DEFAULT_SETTINGS.use24h,
+      font: source.font || DEFAULT_SETTINGS.font,
+      weight: source.weight || DEFAULT_SETTINGS.weight,
+      textColor: source.textColor || DEFAULT_SETTINGS.textColor,
+      bgColor: source.bgColor || DEFAULT_SETTINGS.bgColor,
+      subRatio: clampSubRatio('subRatio' in source ? source.subRatio : DEFAULT_SETTINGS.subRatio)
+    };
+  }
+
+  function resolveFont(fontName) {
+    return fontName === 'system-ui'
+      ? DEFAULT_FONT_STACK
+      : "'" + fontName + "', sans-serif";
+  }
+
+  function setCssVar(name, value) {
+    document.documentElement.style.setProperty(name, value);
+  }
+
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return mergeSettings();
+
+      const parsed = JSON.parse(raw);
+      return mergeSettings(parsed && typeof parsed === 'object' ? parsed : null);
+    } catch (error) {
+      console.warn('Failed to load saved clock settings.', error);
+      return mergeSettings();
+    }
+  }
+
+  function saveSettings() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.settings));
+  }
+
+  function formatClockText(now, use24h) {
+    let hours = now.getHours();
+    if (!use24h) hours = hours % 12 || 12;
+    return pad(hours) + ':' + pad(now.getMinutes());
+  }
+
+  function formatDateText(now) {
+    return now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + ' ' + DAY_NAMES[now.getDay()] + '요일';
+  }
+
+  function formatSecondsText(now) {
+    return pad(now.getSeconds()) + '초';
+  }
+
+  function renderTime() {
+    elements.clock.textContent = formatClockText(state.now, state.settings.use24h);
+    elements.date.textContent = formatDateText(state.now);
+    elements.seconds.textContent = formatSecondsText(state.now);
+  }
+
+  function renderLayout() {
+    const targetWidth = window.innerWidth * 0.92;
+    const style = getComputedStyle(elements.clock);
+    const text = elements.clock.textContent || '00:00';
+
+    measureCtx.font = style.fontWeight + ' 100px ' + style.fontFamily;
+    const textWidth = measureCtx.measureText(text).width || 1;
+    const clockFontSize = (targetWidth / textWidth) * 100;
+
+    elements.clock.style.fontSize = clockFontSize + 'px';
+
+    const subSize = (clockFontSize * state.settings.subRatio / 100) + 'px';
+    elements.date.style.fontSize = subSize;
+    elements.seconds.style.fontSize = subSize;
+  }
+
+  function syncControls() {
+    elements.formatBtn.textContent = state.settings.use24h ? '24H' : '12H';
+    elements.fontSelect.value = state.settings.font;
+    elements.weightSlider.value = state.settings.weight;
+    elements.subRatioSlider.value = state.settings.subRatio;
+    elements.textColorInput.value = state.settings.textColor;
+    elements.bgColorInput.value = state.settings.bgColor;
+  }
+
+  function applyTheme() {
+    setCssVar('--text-color', state.settings.textColor);
+    setCssVar('--bg-color', state.settings.bgColor);
+  }
+
+  function applyTypography() {
+    document.body.style.fontFamily = resolveFont(state.settings.font);
+    setCssVar('--font-weight', state.settings.weight);
+  }
+
+  function applySettings() {
+    applyTheme();
+    applyTypography();
+    syncControls();
+  }
+
+  function updateSettings(patch) {
+    state.settings = mergeSettings(Object.assign({}, state.settings, patch));
+    applySettings();
+    renderTime();
+    renderLayout();
+    saveSettings();
+  }
+
+  function resetSettings() {
+    localStorage.removeItem(STORAGE_KEY);
+    state.settings = mergeSettings();
+    state.now = new Date();
+    applySettings();
+    renderTime();
+    renderLayout();
+    closeSettings();
+  }
+
+  function isFullscreen() {
+    return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+
+  function supportsFullscreen() {
+    const root = document.documentElement;
+    return Boolean(root.requestFullscreen || root.webkitRequestFullscreen);
+  }
+
+  function renderSettingsPanel() {
+    elements.settings.classList.toggle('open', state.settingsOpen);
+    elements.toggleBtn.setAttribute('aria-expanded', String(state.settingsOpen));
+  }
+
+  function openSettings() {
+    state.settingsOpen = true;
+    renderSettingsPanel();
+  }
+
+  function closeSettings() {
+    if (!state.settingsOpen) return;
+    state.settingsOpen = false;
+    renderSettingsPanel();
+  }
+
+  function toggleSettings() {
+    if (state.settingsOpen) {
+      closeSettings();
+      return;
+    }
+    openSettings();
+  }
+
+  function renderFullscreenState() {
+    const fullscreenActive = isFullscreen();
+
+    elements.fullscreenBtn.textContent = fullscreenActive ? 'Exit' : 'Full';
+    elements.toggleBtn.style.display = fullscreenActive ? 'none' : 'flex';
+
+    if (fullscreenActive) closeSettings();
+  }
+
+  function toggleFullscreen() {
+    if (!supportsFullscreen()) return;
+
+    const root = document.documentElement;
+    if (isFullscreen()) {
+      const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exitFullscreen) exitFullscreen.call(document);
+      return;
+    }
+
+    const requestFullscreen = root.requestFullscreen || root.webkitRequestFullscreen;
+    if (requestFullscreen) requestFullscreen.call(root);
+  }
+
+  function handleDocumentClick(event) {
+    if (elements.settings.contains(event.target) || event.target === elements.toggleBtn) return;
+    closeSettings();
+  }
+
+  function handleDocumentDoubleClick(event) {
+    if (elements.settings.contains(event.target) || event.target === elements.toggleBtn) return;
+    toggleFullscreen();
+  }
+
+  function tick() {
+    state.now = new Date();
+    renderTime();
+
+    const delay = 1000 - state.now.getMilliseconds();
+    state.tickTimerId = window.setTimeout(tick, delay);
+  }
+
+  function startClock() {
+    if (state.tickTimerId !== null) {
+      window.clearTimeout(state.tickTimerId);
+    }
+    tick();
+  }
+
+  function bindEvents() {
+    elements.toggleBtn.addEventListener('click', toggleSettings);
+    elements.fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+    document.addEventListener('click', handleDocumentClick);
+    document.addEventListener('dblclick', handleDocumentDoubleClick);
+    document.addEventListener('fullscreenchange', renderFullscreenState);
+    document.addEventListener('webkitfullscreenchange', renderFullscreenState);
+
+    elements.fontSelect.addEventListener('change', function(event) {
+      updateSettings({ font: event.target.value });
+    });
+
+    elements.formatBtn.addEventListener('click', function() {
+      updateSettings({ use24h: !state.settings.use24h });
+    });
+
+    elements.weightSlider.addEventListener('input', function(event) {
+      updateSettings({ weight: event.target.value });
+    });
+
+    elements.subRatioSlider.addEventListener('input', function(event) {
+      updateSettings({ subRatio: event.target.value });
+    });
+
+    elements.textColorInput.addEventListener('input', function(event) {
+      updateSettings({ textColor: event.target.value });
+    });
+
+    elements.bgColorInput.addEventListener('input', function(event) {
+      updateSettings({ bgColor: event.target.value });
+    });
+
+    elements.resetBtn.addEventListener('click', resetSettings);
+    window.addEventListener('resize', renderLayout);
+  }
+
+  function init() {
+    applySettings();
+    renderSettingsPanel();
+
+    if (supportsFullscreen()) {
+      renderFullscreenState();
+    } else if (elements.fullscreenRow) {
+      elements.fullscreenRow.style.display = 'none';
+    }
+
+    renderTime();
+    renderLayout();
+    bindEvents();
+    startClock();
+  }
+
+  init();
+</script>
+
+</body>
+</html>
