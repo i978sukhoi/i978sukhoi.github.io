@@ -199,6 +199,10 @@
     <button id="format-btn" type="button" class="setting-btn">12H</button>
   </div>
   <div class="setting-row">
+    <label>Date</label>
+    <button id="date-format-btn" type="button" class="setting-btn">M월D일</button>
+  </div>
+  <div class="setting-row">
     <label>Weight</label>
     <input type="range" id="weight-slider" min="100" max="900" step="100" value="900">
   </div>
@@ -222,12 +226,19 @@
 
 <script>
   const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+  const DATE_FORMATS = Object.freeze(['month-day-korean', 'md-weekday', 'iso']);
+  const DATE_FORMAT_LABELS = Object.freeze({
+    'month-day-korean': 'M월D일',
+    'md-weekday': 'M/D',
+    iso: 'ISO'
+  });
   const STORAGE_KEY = 'clock-settings';
   const DEFAULT_FONT_STACK = "-apple-system, 'SF Pro Display', system-ui, 'Segoe UI', 'Consolas', sans-serif";
   const SUB_RATIO_MIN = 15;
-  const SUB_RATIO_MAX = 35;
+  const SUB_RATIO_MAX = 50;
   const DEFAULT_SETTINGS = Object.freeze({
     use24h: false,
+    dateFormat: 'month-day-korean',
     font: 'system-ui',
     weight: '900',
     textColor: '#ffff00',
@@ -249,6 +260,7 @@
     toggleBtn: document.getElementById('settings-toggle'),
     fullscreenBtn: document.getElementById('fullscreen-btn'),
     formatBtn: document.getElementById('format-btn'),
+    dateFormatBtn: document.getElementById('date-format-btn'),
     fontSelect: document.getElementById('font-select'),
     weightSlider: document.getElementById('weight-slider'),
     subRatioSlider: document.getElementById('sub-ratio-slider'),
@@ -274,6 +286,9 @@
     const source = partial && typeof partial === 'object' ? partial : {};
     return {
       use24h: 'use24h' in source ? Boolean(source.use24h) : DEFAULT_SETTINGS.use24h,
+      dateFormat: DATE_FORMATS.includes(source.dateFormat)
+        ? source.dateFormat
+        : DEFAULT_SETTINGS.dateFormat,
       font: source.font || DEFAULT_SETTINGS.font,
       weight: source.weight || DEFAULT_SETTINGS.weight,
       textColor: source.textColor || DEFAULT_SETTINGS.textColor,
@@ -315,8 +330,15 @@
     return pad(hours) + ':' + pad(now.getMinutes());
   }
 
-  function formatDateText(now) {
-    return now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + ' ' + DAY_NAMES[now.getDay()] + '요일';
+  function formatDateText(now, dateFormat) {
+    const dayText = DAY_NAMES[now.getDay()] + '요일';
+    if (dateFormat === 'month-day-korean') {
+      return (now.getMonth() + 1) + '월' + now.getDate() + '일 ' + dayText;
+    }
+    if (dateFormat === 'md-weekday') {
+      return (now.getMonth() + 1) + '/' + now.getDate() + ' ' + dayText;
+    }
+    return now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + ' ' + dayText;
   }
 
   function formatSecondsText(now) {
@@ -325,7 +347,7 @@
 
   function renderTime() {
     elements.clock.textContent = formatClockText(state.now, state.settings.use24h);
-    elements.date.textContent = formatDateText(state.now);
+    elements.date.textContent = formatDateText(state.now, state.settings.dateFormat);
     elements.seconds.textContent = formatSecondsText(state.now);
   }
 
@@ -347,11 +369,18 @@
 
   function syncControls() {
     elements.formatBtn.textContent = state.settings.use24h ? '24H' : '12H';
+    elements.dateFormatBtn.textContent = DATE_FORMAT_LABELS[state.settings.dateFormat] || DATE_FORMAT_LABELS[DEFAULT_SETTINGS.dateFormat];
     elements.fontSelect.value = state.settings.font;
     elements.weightSlider.value = state.settings.weight;
     elements.subRatioSlider.value = state.settings.subRatio;
     elements.textColorInput.value = state.settings.textColor;
     elements.bgColorInput.value = state.settings.bgColor;
+  }
+
+  function getNextDateFormat(currentFormat) {
+    const currentIndex = DATE_FORMATS.indexOf(currentFormat);
+    if (currentIndex === -1) return DEFAULT_SETTINGS.dateFormat;
+    return DATE_FORMATS[(currentIndex + 1) % DATE_FORMATS.length];
   }
 
   function applyTheme() {
@@ -484,6 +513,12 @@
 
     elements.formatBtn.addEventListener('click', function() {
       updateSettings({ use24h: !state.settings.use24h });
+    });
+
+    elements.dateFormatBtn.addEventListener('click', function() {
+      updateSettings({
+        dateFormat: getNextDateFormat(state.settings.dateFormat)
+      });
     });
 
     elements.weightSlider.addEventListener('input', function(event) {
